@@ -1,5 +1,4 @@
 # NutriTrack Fitness Planner GUI
-# Run this file with: python3 smartbite_gui.py
 
 import tkinter as tk
 from tkinter import messagebox
