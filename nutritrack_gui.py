@@ -1,6 +1,6 @@
 # NutriTrack Fitness Planner GUI
 
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import messagebox
 import json
 import os
@@ -12,8 +12,7 @@ DATA_FILE = "nutritrack_data.json"
 def calculate_bmr(weight, height, age, gender):
     if gender == "Male":
         return 10 * weight + 6.25 * height - 5 * age + 5
-    else:
-        return 10 * weight + 6.25 * height - 5 * age - 161
+    return 10 * weight + 6.25 * height - 5 * age - 161
 
 
 def calculate_tdee(bmr, training_level):
@@ -29,8 +28,7 @@ def calculate_tdee(bmr, training_level):
 def calculate_target_calories(tdee, goal):
     if goal == "Fat Loss":
         return tdee - 400
-    else:
-        return tdee + 300
+    return tdee + 300
 
 
 def calculate_macros(weight, target_calories, goal):
@@ -51,22 +49,25 @@ def calculate_macros(weight, target_calories, goal):
     return round(protein), round(carbs), round(fat)
 
 
-def split_meals(protein, carbs, fat):
+def split_meals(protein, carbs, fat, target_calories):
     return {
         "Breakfast": {
-            "protein": round(protein * 0.3),
-            "carbs": round(carbs * 0.3),
-            "fat": round(fat * 0.3)
+            "calories": round(target_calories * 0.30),
+            "protein": round(protein * 0.30),
+            "carbs": round(carbs * 0.30),
+            "fat": round(fat * 0.30)
         },
         "Lunch": {
-            "protein": round(protein * 0.4),
-            "carbs": round(carbs * 0.4),
-            "fat": round(fat * 0.4)
+            "calories": round(target_calories * 0.35),
+            "protein": round(protein * 0.35),
+            "carbs": round(carbs * 0.35),
+            "fat": round(fat * 0.35)
         },
         "Dinner": {
-            "protein": round(protein * 0.3),
-            "carbs": round(carbs * 0.3),
-            "fat": round(fat * 0.3)
+            "calories": round(target_calories * 0.35),
+            "protein": round(protein * 0.35),
+            "carbs": round(carbs * 0.35),
+            "fat": round(fat * 0.35)
         }
     }
 
@@ -78,157 +79,492 @@ def get_level(points):
         return "Consistent Eater"
     elif points < 120:
         return "Fitness Learner"
-    else:
-        return "Nutrition Master"
+    return "Nutrition Master"
 
 
 class NutriTrackApp:
     def __init__(self, root):
         self.root = root
         self.root.title("NutriTrack Fitness Planner")
-        self.root.geometry("760x720")
+        self.root.geometry("1050x850")
+        self.root.resizable(True, True)
+
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("green")
 
         self.data = None
+        self.meal_buttons = {}
+
+        self.colors = {
+            "background": "#F4F7EF",
+            "card": "#FFFFFF",
+            "green": "#1F7A3A",
+            "dark_green": "#154D2A",
+            "soft_green": "#EAF4E7",
+            "orange": "#F4A261",
+            "blue": "#DDEEFF",
+            "text": "#1F2933",
+            "muted": "#6B7280"
+        }
 
         self.create_widgets()
         self.load_data()
 
     def create_widgets(self):
-        title = tk.Label(
+        self.root.configure(fg_color=self.colors["background"])
+
+        self.main_frame = ctk.CTkFrame(
             self.root,
-            text="NutriTrack Fitness Planner",
-            font=("Arial", 24, "bold")
+            fg_color=self.colors["background"],
+            corner_radius=0
         )
-        title.pack(pady=15)
+        self.main_frame.pack(fill="both", expand=True, padx=25, pady=20)
 
-        subtitle = tk.Label(
-            self.root,
-            text="A simple nutrition planner for muscle gain and fat loss",
-            font=("Arial", 12)
+        self.create_header()
+        self.create_goal_bar()
+        self.create_content_area()
+        self.create_bottom_area()
+
+    def create_header(self):
+        header = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.colors["background"]
         )
-        subtitle.pack(pady=5)
+        header.pack(fill="x", pady=(0, 15))
 
-        main_frame = tk.Frame(self.root)
-        main_frame.pack(pady=10)
+        title_area = ctk.CTkFrame(header, fg_color=self.colors["background"])
+        title_area.pack(side="left")
 
-        left_frame = tk.LabelFrame(main_frame, text="User Profile", padx=15, pady=15)
-        left_frame.grid(row=0, column=0, padx=15, sticky="n")
+        title = ctk.CTkLabel(
+            title_area,
+            text="🌿 NutriTrack",
+            font=("Arial", 38, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        title.pack(anchor="w")
 
-        right_frame = tk.LabelFrame(main_frame, text="Nutrition Plan", padx=15, pady=15)
-        right_frame.grid(row=0, column=1, padx=15, sticky="n")
+        subtitle = ctk.CTkLabel(
+            title_area,
+            text="Your Simple Fitness Meal Planner",
+            font=("Arial", 17),
+            text_color=self.colors["dark_green"]
+        )
+        subtitle.pack(anchor="w", pady=(2, 0))
 
-        tk.Label(left_frame, text="Name:").grid(row=0, column=0, sticky="w", pady=5)
-        self.name_entry = tk.Entry(left_frame, width=25)
-        self.name_entry.grid(row=0, column=1, pady=5)
+        slogan = ctk.CTkLabel(
+            header,
+            text="Good food,\nbetter you 💪",
+            font=("Arial", 16, "bold"),
+            text_color=self.colors["dark_green"],
+            justify="center"
+        )
+        slogan.pack(side="right", padx=30)
 
-        tk.Label(left_frame, text="Age:").grid(row=1, column=0, sticky="w", pady=5)
-        self.age_entry = tk.Entry(left_frame, width=25)
-        self.age_entry.grid(row=1, column=1, pady=5)
+    def create_goal_bar(self):
+        goal_frame = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.colors["soft_green"],
+            border_color=self.colors["green"],
+            border_width=2,
+            corner_radius=18
+        )
+        goal_frame.pack(fill="x", pady=(0, 20), ipady=12)
 
-        tk.Label(left_frame, text="Gender:").grid(row=2, column=0, sticky="w", pady=5)
-        self.gender_var = tk.StringVar(value="Male")
-        gender_menu = tk.OptionMenu(left_frame, self.gender_var, "Male", "Female")
-        gender_menu.grid(row=2, column=1, sticky="w", pady=5)
+        goal_label = ctk.CTkLabel(
+            goal_frame,
+            text="GOAL",
+            font=("Arial", 16, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        goal_label.pack(side="left", padx=30)
 
-        tk.Label(left_frame, text="Height cm:").grid(row=3, column=0, sticky="w", pady=5)
-        self.height_entry = tk.Entry(left_frame, width=25)
-        self.height_entry.grid(row=3, column=1, pady=5)
+        self.goal_var = ctk.StringVar(value="Fat Loss")
 
-        tk.Label(left_frame, text="Weight kg:").grid(row=4, column=0, sticky="w", pady=5)
-        self.weight_entry = tk.Entry(left_frame, width=25)
-        self.weight_entry.grid(row=4, column=1, pady=5)
+        fat_button = ctk.CTkRadioButton(
+            goal_frame,
+            text="🔥 Fat Loss",
+            variable=self.goal_var,
+            value="Fat Loss",
+            font=("Arial", 15, "bold"),
+            text_color=self.colors["text"],
+            fg_color=self.colors["green"],
+            border_color=self.colors["green"]
+        )
+        fat_button.pack(side="left", padx=20)
 
-        tk.Label(left_frame, text="Goal:").grid(row=5, column=0, sticky="w", pady=5)
-        self.goal_var = tk.StringVar(value="Fat Loss")
-        goal_menu = tk.OptionMenu(left_frame, self.goal_var, "Fat Loss", "Muscle Gain")
-        goal_menu.grid(row=5, column=1, sticky="w", pady=5)
+        muscle_button = ctk.CTkRadioButton(
+            goal_frame,
+            text="🏋️ Muscle Gain",
+            variable=self.goal_var,
+            value="Muscle Gain",
+            font=("Arial", 15, "bold"),
+            text_color=self.colors["text"],
+            fg_color=self.colors["green"],
+            border_color=self.colors["green"]
+        )
+        muscle_button.pack(side="left", padx=20)
 
-        tk.Label(left_frame, text="Training:").grid(row=6, column=0, sticky="w", pady=5)
-        self.training_var = tk.StringVar(value="Moderate training")
-        training_menu = tk.OptionMenu(
-            left_frame,
+    def create_content_area(self):
+        content = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.colors["background"]
+        )
+        content.pack(fill="both", expand=True)
+
+        left_column = ctk.CTkFrame(
+            content,
+            fg_color=self.colors["background"]
+        )
+        left_column.pack(side="left", fill="y", padx=(0, 18))
+
+        right_column = ctk.CTkFrame(
+            content,
+            fg_color=self.colors["background"]
+        )
+        right_column.pack(side="left", fill="both", expand=True)
+
+        self.create_user_card(left_column)
+        self.create_target_card(left_column)
+        self.create_meal_plan_card(right_column)
+
+    def create_user_card(self, parent):
+        card = ctk.CTkFrame(
+            parent,
+            fg_color=self.colors["card"],
+            corner_radius=18,
+            border_width=1,
+            border_color="#D9E2D0"
+        )
+        card.pack(fill="x", pady=(0, 16), ipadx=15, ipady=15)
+
+        title = ctk.CTkLabel(
+            card,
+            text="👤 USER INFO",
+            font=("Arial", 17, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        title.pack(anchor="w", padx=18, pady=(12, 10))
+
+        self.name_entry = self.create_input(card, "Name", "")
+        self.age_entry = self.create_input(card, "Age", "")
+        self.height_entry = self.create_input(card, "Height cm", "")
+        self.weight_entry = self.create_input(card, "Weight kg", "")
+
+        self.gender_var = ctk.StringVar(value="Male")
+        self.gender_menu = self.create_option(card, "Gender", self.gender_var, ["Male", "Female"])
+
+        self.training_var = ctk.StringVar(value="Moderate training")
+        self.training_menu = self.create_option(
+            card,
+            "Training Level",
             self.training_var,
-            "No training",
-            "Light training",
-            "Moderate training",
-            "Heavy training"
+            ["No training", "Light training", "Moderate training", "Heavy training"]
         )
-        training_menu.grid(row=6, column=1, sticky="w", pady=5)
 
-        generate_button = tk.Button(
-            left_frame,
-            text="Generate Nutrition Plan",
-            width=25,
+        generate_button = ctk.CTkButton(
+            card,
+            text="Calculate Plan",
+            height=42,
+            fg_color=self.colors["green"],
+            hover_color=self.colors["dark_green"],
+            font=("Arial", 15, "bold"),
             command=self.generate_plan
         )
-        generate_button.grid(row=7, column=0, columnspan=2, pady=15)
+        generate_button.pack(fill="x", padx=18, pady=(15, 8))
 
-        reset_button = tk.Button(
-            left_frame,
+        reset_button = ctk.CTkButton(
+            card,
             text="Reset All Data",
-            width=25,
+            height=36,
+            fg_color="#E5E7EB",
+            hover_color="#D1D5DB",
+            text_color=self.colors["text"],
+            font=("Arial", 13, "bold"),
             command=self.reset_data
         )
-        reset_button.grid(row=8, column=0, columnspan=2, pady=5)
+        reset_button.pack(fill="x", padx=18, pady=(0, 15))
 
-        self.plan_text = tk.Text(right_frame, width=42, height=22)
-        self.plan_text.pack()
+    def create_input(self, parent, label_text, default_text):
+        row = ctk.CTkFrame(parent, fg_color=self.colors["card"])
+        row.pack(fill="x", padx=18, pady=6)
 
-        checkin_frame = tk.LabelFrame(self.root, text="Daily Meal Check-in", padx=15, pady=15)
-        checkin_frame.pack(pady=10)
-
-        self.breakfast_button = tk.Button(
-            checkin_frame,
-            text="Breakfast Not Completed",
-            width=25,
-            command=lambda: self.complete_meal("Breakfast")
+        label = ctk.CTkLabel(
+            row,
+            text=label_text,
+            width=100,
+            anchor="w",
+            font=("Arial", 14),
+            text_color=self.colors["text"]
         )
-        self.breakfast_button.grid(row=0, column=0, padx=8, pady=5)
+        label.pack(side="left")
 
-        self.lunch_button = tk.Button(
-            checkin_frame,
-            text="Lunch Not Completed",
-            width=25,
-            command=lambda: self.complete_meal("Lunch")
+        entry = ctk.CTkEntry(
+            row,
+            width=140,
+            height=34,
+            corner_radius=10
         )
-        self.lunch_button.grid(row=0, column=1, padx=8, pady=5)
+        entry.pack(side="right")
+        entry.insert(0, default_text)
+        return entry
 
-        self.dinner_button = tk.Button(
-            checkin_frame,
-            text="Dinner Not Completed",
-            width=25,
-            command=lambda: self.complete_meal("Dinner")
+    def create_option(self, parent, label_text, variable, options):
+        row = ctk.CTkFrame(parent, fg_color=self.colors["card"])
+        row.pack(fill="x", padx=18, pady=6)
+
+        label = ctk.CTkLabel(
+            row,
+            text=label_text,
+            width=100,
+            anchor="w",
+            font=("Arial", 14),
+            text_color=self.colors["text"]
         )
-        self.dinner_button.grid(row=0, column=2, padx=8, pady=5)
+        label.pack(side="left")
 
-        progress_frame = tk.LabelFrame(self.root, text="Progress Tracking", padx=15, pady=15)
-        progress_frame.pack(pady=10)
+        menu = ctk.CTkOptionMenu(
+            row,
+            values=options,
+            variable=variable,
+            width=140,
+            height=34,
+            fg_color=self.colors["green"],
+            button_color=self.colors["dark_green"],
+            button_hover_color=self.colors["dark_green"]
+        )
+        menu.pack(side="right")
+        return menu
 
-        tk.Label(progress_frame, text="Today's Weight kg:").grid(row=0, column=0, padx=5)
-        self.new_weight_entry = tk.Entry(progress_frame, width=15)
-        self.new_weight_entry.grid(row=0, column=1, padx=5)
+    def create_target_card(self, parent):
+        self.target_card = ctk.CTkFrame(
+            parent,
+            fg_color=self.colors["card"],
+            corner_radius=18,
+            border_width=1,
+            border_color="#D9E2D0"
+        )
+        self.target_card.pack(fill="x", ipadx=15, ipady=15)
 
-        record_button = tk.Button(
-            progress_frame,
+        title = ctk.CTkLabel(
+            self.target_card,
+            text="🎯 DAILY TARGET",
+            font=("Arial", 17, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        title.pack(anchor="w", padx=18, pady=(12, 10))
+
+        self.calorie_label = ctk.CTkLabel(
+            self.target_card,
+            text="Calories     -- kcal",
+            font=("Arial", 18, "bold"),
+            text_color=self.colors["text"]
+        )
+        self.calorie_label.pack(anchor="w", padx=20, pady=8)
+
+        self.protein_label = ctk.CTkLabel(
+            self.target_card,
+            text="Protein      -- g",
+            font=("Arial", 17, "bold"),
+            text_color=self.colors["green"]
+        )
+        self.protein_label.pack(anchor="w", padx=20, pady=8)
+
+        self.carbs_label = ctk.CTkLabel(
+            self.target_card,
+            text="Carbs        -- g",
+            font=("Arial", 17, "bold"),
+            text_color="#2456A6"
+        )
+        self.carbs_label.pack(anchor="w", padx=20, pady=8)
+
+        self.fat_label = ctk.CTkLabel(
+            self.target_card,
+            text="Fat          -- g",
+            font=("Arial", 17, "bold"),
+            text_color="#C47A00"
+        )
+        self.fat_label.pack(anchor="w", padx=20, pady=8)
+
+        self.bmr_tdee_label = ctk.CTkLabel(
+            self.target_card,
+            text="BMR and TDEE will appear here.",
+            font=("Arial", 12),
+            text_color=self.colors["muted"]
+        )
+        self.bmr_tdee_label.pack(anchor="w", padx=20, pady=(5, 15))
+
+    def create_meal_plan_card(self, parent):
+        card = ctk.CTkFrame(
+            parent,
+            fg_color=self.colors["card"],
+            corner_radius=18,
+            border_width=1,
+            border_color="#D9E2D0"
+        )
+        card.pack(fill="both", expand=True, ipadx=15, ipady=15)
+
+        title = ctk.CTkLabel(
+            card,
+            text="🍽️ MEAL PLAN",
+            font=("Arial", 18, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        title.pack(anchor="w", padx=18, pady=(12, 10))
+
+        self.meals_frame = ctk.CTkFrame(card, fg_color=self.colors["card"])
+        self.meals_frame.pack(fill="both", expand=True, padx=12, pady=5)
+
+        self.meal_cards = {}
+
+        self.create_single_meal_card(
+            self.meals_frame,
+            "Breakfast",
+            "🥣",
+            "#FFF6D8"
+        )
+        self.create_single_meal_card(
+            self.meals_frame,
+            "Lunch",
+            "🍗",
+            "#EEF8E8"
+        )
+        self.create_single_meal_card(
+            self.meals_frame,
+            "Dinner",
+            "🍣",
+            "#EAF3FF"
+        )
+
+    def create_single_meal_card(self, parent, meal_name, icon, color):
+        meal_card = ctk.CTkFrame(
+            parent,
+            fg_color=color,
+            corner_radius=16,
+            border_width=1,
+            border_color="#D0D7C8"
+        )
+        meal_card.pack(fill="x", padx=5, pady=9, ipady=10)
+
+        top = ctk.CTkFrame(meal_card, fg_color=color)
+        top.pack(fill="x", padx=16, pady=(10, 5))
+
+        meal_title = ctk.CTkLabel(
+            top,
+            text=icon + "  " + meal_name,
+            font=("Arial", 20, "bold"),
+            text_color=self.colors["text"]
+        )
+        meal_title.pack(side="left")
+
+        button = ctk.CTkButton(
+            top,
+            text="Not Completed",
+            width=130,
+            height=38,
+            fg_color="#E5E7EB",
+            hover_color="#D1D5DB",
+            text_color=self.colors["text"],
+            command=lambda: self.complete_meal(meal_name)
+        )
+        button.pack(side="right")
+
+        details = ctk.CTkLabel(
+            meal_card,
+            text="Calories -- kcal     Protein -- g     Carbs -- g     Fat -- g",
+            font=("Arial", 15),
+            text_color=self.colors["text"]
+        )
+        details.pack(anchor="w", padx=20, pady=(8, 10))
+
+        self.meal_cards[meal_name] = details
+        self.meal_buttons[meal_name] = button
+
+    def create_bottom_area(self):
+        bottom = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.colors["background"]
+        )
+        bottom.pack(fill="x", pady=(15, 0))
+
+        progress_card = ctk.CTkFrame(
+            bottom,
+            fg_color=self.colors["card"],
+            corner_radius=18,
+            border_width=1,
+            border_color="#D9E2D0"
+        )
+        progress_card.pack(side="left", fill="x", expand=True, padx=(0, 12), ipady=12)
+
+        progress_title = ctk.CTkLabel(
+            progress_card,
+            text="📈 TRACK YOUR PROGRESS",
+            font=("Arial", 16, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        progress_title.pack(anchor="w", padx=18, pady=(10, 8))
+
+        weight_row = ctk.CTkFrame(progress_card, fg_color=self.colors["card"])
+        weight_row.pack(fill="x", padx=18)
+
+        self.new_weight_entry = ctk.CTkEntry(
+            weight_row,
+            placeholder_text="Today's weight kg",
+            width=180,
+            height=36
+        )
+        self.new_weight_entry.pack(side="left", padx=(0, 10))
+
+        record_button = ctk.CTkButton(
+            weight_row,
             text="Record Weight",
-            width=20,
+            width=140,
+            height=36,
+            fg_color=self.colors["green"],
+            hover_color=self.colors["dark_green"],
             command=self.record_weight
         )
-        record_button.grid(row=0, column=2, padx=10)
+        record_button.pack(side="left")
 
-        self.progress_label = tk.Label(
-            progress_frame,
+        self.progress_label = ctk.CTkLabel(
+            progress_card,
             text="Points: 0 | Level: Beginner | Completed Days: 0",
-            font=("Arial", 12)
+            font=("Arial", 14, "bold"),
+            text_color=self.colors["text"]
         )
-        self.progress_label.grid(row=1, column=0, columnspan=3, pady=10)
+        self.progress_label.pack(anchor="w", padx=18, pady=(12, 2))
 
-        self.feedback_label = tk.Label(
-            progress_frame,
+        self.feedback_label = ctk.CTkLabel(
+            progress_card,
             text="Weight feedback will appear here.",
-            font=("Arial", 11)
+            font=("Arial", 13),
+            text_color=self.colors["muted"]
         )
-        self.feedback_label.grid(row=2, column=0, columnspan=3, pady=5)
+        self.feedback_label.pack(anchor="w", padx=18, pady=(2, 10))
+
+        reward_card = ctk.CTkFrame(
+            bottom,
+            fg_color=self.colors["soft_green"],
+            corner_radius=18,
+            border_width=1,
+            border_color="#B7D7B0"
+        )
+        reward_card.pack(side="right", fill="x", expand=True, padx=(12, 0), ipady=12)
+
+        self.reward_label = ctk.CTkLabel(
+            reward_card,
+            text="🏆 Great Job!",
+            font=("Arial", 24, "bold"),
+            text_color=self.colors["dark_green"]
+        )
+        self.reward_label.pack(pady=(18, 5))
+
+        self.reward_text = ctk.CTkLabel(
+            reward_card,
+            text="Complete all meals today to earn points.",
+            font=("Arial", 14),
+            text_color=self.colors["text"]
+        )
+        self.reward_text.pack(pady=(0, 18))
 
     def generate_plan(self):
         try:
@@ -256,7 +592,7 @@ class NutriTrackApp:
         tdee = calculate_tdee(bmr, training)
         target_calories = calculate_target_calories(tdee, goal)
         protein, carbs, fat = calculate_macros(weight, target_calories, goal)
-        meals = split_meals(protein, carbs, fat)
+        meals = split_meals(protein, carbs, fat, target_calories)
 
         self.data = {
             "user": {
@@ -295,45 +631,35 @@ class NutriTrackApp:
         messagebox.showinfo("Success", "Your nutrition plan has been generated.")
 
     def display_plan(self):
-        self.plan_text.delete("1.0", tk.END)
-
         if self.data is None:
-            self.plan_text.insert(tk.END, "No nutrition plan yet.")
             return
 
-        user = self.data["user"]
         plan = self.data["plan"]
 
-        text = ""
-        text += "User Profile\n"
-        text += "-" * 35 + "\n"
-        text += "Name: " + user["name"] + "\n"
-        text += "Age: " + str(user["age"]) + "\n"
-        text += "Gender: " + user["gender"] + "\n"
-        text += "Height: " + str(user["height"]) + " cm\n"
-        text += "Weight: " + str(user["weight"]) + " kg\n"
-        text += "Goal: " + user["goal"] + "\n"
-        text += "Training: " + user["training"] + "\n\n"
-
-        text += "Daily Nutrition Target\n"
-        text += "-" * 35 + "\n"
-        text += "BMR: " + str(plan["bmr"]) + " kcal\n"
-        text += "TDEE: " + str(plan["tdee"]) + " kcal\n"
-        text += "Target Calories: " + str(plan["target_calories"]) + " kcal\n"
-        text += "Protein: " + str(plan["protein"]) + " g\n"
-        text += "Carbs: " + str(plan["carbs"]) + " g\n"
-        text += "Fat: " + str(plan["fat"]) + " g\n\n"
-
-        text += "Meal Distribution\n"
-        text += "-" * 35 + "\n"
+        self.calorie_label.configure(
+            text="🔥 Calories     " + str(plan["target_calories"]) + " kcal"
+        )
+        self.protein_label.configure(
+            text="🥩 Protein      " + str(plan["protein"]) + " g"
+        )
+        self.carbs_label.configure(
+            text="🍚 Carbs        " + str(plan["carbs"]) + " g"
+        )
+        self.fat_label.configure(
+            text="🥑 Fat          " + str(plan["fat"]) + " g"
+        )
+        self.bmr_tdee_label.configure(
+            text="BMR: " + str(plan["bmr"]) + " kcal | TDEE: " + str(plan["tdee"]) + " kcal"
+        )
 
         for meal, macros in plan["meals"].items():
-            text += meal + ":\n"
-            text += "  Protein: " + str(macros["protein"]) + " g\n"
-            text += "  Carbs: " + str(macros["carbs"]) + " g\n"
-            text += "  Fat: " + str(macros["fat"]) + " g\n"
-
-        self.plan_text.insert(tk.END, text)
+            text = (
+                "Calories " + str(macros["calories"]) + " kcal     "
+                "Protein " + str(macros["protein"]) + " g     "
+                "Carbs " + str(macros["carbs"]) + " g     "
+                "Fat " + str(macros["fat"]) + " g"
+            )
+            self.meal_cards[meal].configure(text=text)
 
     def complete_meal(self, meal):
         if self.data is None:
@@ -349,6 +675,10 @@ class NutriTrackApp:
         if all(self.data["checkin"].values()):
             self.data["points"] += 10
             self.data["completed_days"] += 1
+            self.reward_label.configure(text="🏆 Great Job!")
+            self.reward_text.configure(
+                text="You completed all your meals today!\nKeep it up and stay consistent 💪"
+            )
             messagebox.showinfo(
                 "Congratulations",
                 "You completed all three meals today and earned 10 points!"
@@ -402,9 +732,12 @@ class NutriTrackApp:
             "Dinner": False
         }
 
-        self.feedback_label.config(
+        self.feedback_label.configure(
             text="Weight change: " + str(round(difference, 2)) + " kg. " + feedback
         )
+
+        self.reward_label.configure(text="🏆 New Day Started")
+        self.reward_text.configure(text="Complete all meals today to earn points.")
 
         self.save_data()
         self.display_plan()
@@ -415,33 +748,38 @@ class NutriTrackApp:
 
     def update_checkin_buttons(self):
         if self.data is None:
+            for meal in self.meal_buttons:
+                self.meal_buttons[meal].configure(
+                    text="Not Completed",
+                    fg_color="#E5E7EB",
+                    text_color=self.colors["text"]
+                )
             return
 
-        if self.data["checkin"]["Breakfast"]:
-            self.breakfast_button.config(text="Breakfast Completed")
-        else:
-            self.breakfast_button.config(text="Breakfast Not Completed")
-
-        if self.data["checkin"]["Lunch"]:
-            self.lunch_button.config(text="Lunch Completed")
-        else:
-            self.lunch_button.config(text="Lunch Not Completed")
-
-        if self.data["checkin"]["Dinner"]:
-            self.dinner_button.config(text="Dinner Completed")
-        else:
-            self.dinner_button.config(text="Dinner Not Completed")
+        for meal in self.meal_buttons:
+            if self.data["checkin"][meal]:
+                self.meal_buttons[meal].configure(
+                    text="✓ Completed",
+                    fg_color=self.colors["green"],
+                    text_color="white"
+                )
+            else:
+                self.meal_buttons[meal].configure(
+                    text="Not Completed",
+                    fg_color="#E5E7EB",
+                    text_color=self.colors["text"]
+                )
 
     def update_progress(self):
         if self.data is None:
-            self.progress_label.config(text="Points: 0 | Level: Beginner | Completed Days: 0")
+            self.progress_label.configure(text="Points: 0 | Level: Beginner | Completed Days: 0")
             return
 
         points = self.data["points"]
         completed_days = self.data["completed_days"]
         level = get_level(points)
 
-        self.progress_label.config(
+        self.progress_label.configure(
             text="Points: " + str(points) +
                  " | Level: " + level +
                  " | Completed Days: " + str(completed_days)
@@ -472,20 +810,19 @@ class NutriTrackApp:
 
         user = self.data["user"]
 
-        self.name_entry.delete(0, tk.END)
+        self.name_entry.delete(0, "end")
         self.name_entry.insert(0, user["name"])
 
-        self.age_entry.delete(0, tk.END)
+        self.age_entry.delete(0, "end")
         self.age_entry.insert(0, str(user["age"]))
 
-        self.gender_var.set(user["gender"])
-
-        self.height_entry.delete(0, tk.END)
+        self.height_entry.delete(0, "end")
         self.height_entry.insert(0, str(user["height"]))
 
-        self.weight_entry.delete(0, tk.END)
+        self.weight_entry.delete(0, "end")
         self.weight_entry.insert(0, str(user["weight"]))
 
+        self.gender_var.set(user["gender"])
         self.goal_var.set(user["goal"])
         self.training_var.set(user["training"])
 
@@ -498,34 +835,42 @@ class NutriTrackApp:
 
             self.data = None
 
-            self.name_entry.delete(0, tk.END)
-            self.age_entry.delete(0, tk.END)
-            self.height_entry.delete(0, tk.END)
-            self.weight_entry.delete(0, tk.END)
-            self.new_weight_entry.delete(0, tk.END)
+            self.name_entry.delete(0, "end")
+            self.age_entry.delete(0, "end")
+            self.height_entry.delete(0, "end")
+            self.weight_entry.delete(0, "end")
+            self.new_weight_entry.delete(0, "end")
 
             self.gender_var.set("Male")
             self.goal_var.set("Fat Loss")
             self.training_var.set("Moderate training")
 
-            self.plan_text.delete("1.0", tk.END)
-            self.plan_text.insert(tk.END, "No nutrition plan yet.")
+            self.calorie_label.configure(text="Calories     -- kcal")
+            self.protein_label.configure(text="Protein      -- g")
+            self.carbs_label.configure(text="Carbs        -- g")
+            self.fat_label.configure(text="Fat          -- g")
+            self.bmr_tdee_label.configure(text="BMR and TDEE will appear here.")
 
-            self.breakfast_button.config(text="Breakfast Not Completed")
-            self.lunch_button.config(text="Lunch Not Completed")
-            self.dinner_button.config(text="Dinner Not Completed")
+            for meal in self.meal_cards:
+                self.meal_cards[meal].configure(
+                    text="Calories -- kcal     Protein -- g     Carbs -- g     Fat -- g"
+                )
 
-            self.feedback_label.config(text="Weight feedback will appear here.")
+            self.feedback_label.configure(text="Weight feedback will appear here.")
+            self.reward_label.configure(text="🏆 Great Job!")
+            self.reward_text.configure(text="Complete all meals today to earn points.")
+
+            self.update_checkin_buttons()
             self.update_progress()
 
             messagebox.showinfo("Reset Complete", "All data has been deleted.")
 
 
 def main():
-    root = tk.Tk()
-    app = NutriTrackApp(root)
+    root = ctk.CTk()
+    NutriTrackApp(root)
     root.mainloop()
 
 
-main()
-
+if __name__ == "__main__":
+    main()
